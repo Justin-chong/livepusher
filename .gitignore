@@ -1,0 +1,64 @@
+# 构建输出
+build/
+out/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+install/
+Testing/
+
+# Ninja / Make
+*.ninja
+.ninja_*
+*.make
+*.mk
+
+# Ninja/CMake 日志与依赖
+.ninja_log
+.ninja_deps
+compile_commands.json
+
+# MSVC 调试符号与中间文件
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.idb
+*.ipch
+*.obj
+*.o
+*.res
+*.tmp
+*.tmp_proj
+*_pch.cpp
+*.pchext
+*.opensdf
+*.sdf
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# 生成的产物
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.bin
+
+# VS IDE 缓存（重要：包含 Copilot 索引、ipch、SQLite 等）
+.vs/
+.vscode/
+
+# CMake 临时文件
+CMakeUserPresets.json
+
+# 系统/编辑器
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
