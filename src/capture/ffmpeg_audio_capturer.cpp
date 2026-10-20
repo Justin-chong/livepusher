@@ -23,22 +23,22 @@ namespace livepusher {
 
 	bool FFmpegAudioCapturer::open(const std::string& device_name, int sample_rate, int channels)
 	{
-		//ÉèÖÃ²ÎÊı
+		//è®¾ç½®å‚æ•°
 		sample_rate_ = sample_rate;
 		
 		channels_ = channels;
 
-		// ×¢²áËùÓĞÉè±¸£¨dshow µÈ£©£¬ÃİµÈ¿É¶à´Îµ÷ÓÃ
+		// æ³¨å†Œæ‰€æœ‰è®¾å¤‡ï¼ˆdshow ç­‰ï¼‰ï¼Œå¹‚ç­‰å¯å¤šæ¬¡è°ƒç”¨
 		avdevice_register_all();
 
-		// ÉèÖÃÆÚÍûµÄ·Ö±æÂÊºÍÖ¡ÂÊ£¬Í¨¹ı AVDictionary ´«¸ø dshow
+		// è®¾ç½®æœŸæœ›çš„åˆ†è¾¨ç‡å’Œå¸§ç‡ï¼Œé€šè¿‡ AVDictionary ä¼ ç»™ dshow
 		AVDictionary* opt = nullptr;
 		av_dict_set(&opt, "sample_rate", std::to_string(sample_rate_).c_str(), 0);
 		av_dict_set(&opt, "channels", std::to_string(channels_).c_str(), 0);
 		av_dict_set(&opt, "bit_depth", std::to_string(kDefaultBitDepth).c_str(), 0);
 
 
-		// ÏÔÊ½Ö¸¶¨ÓÃ dshow ´ò¿ª£¬²»´«µÄ»° FFmpeg ²»ÈÏÊ¶ "video=xxx"
+		// æ˜¾å¼æŒ‡å®šç”¨ dshow æ‰“å¼€ï¼Œä¸ä¼ çš„è¯ FFmpeg ä¸è®¤è¯† "video=xxx"
 		const AVInputFormat* ifmt = av_find_input_format("dshow");
 		if (!ifmt) {
 			LOG_ERROR << "Cannot find dshow demuxer";
@@ -46,7 +46,7 @@ namespace livepusher {
 			return false;
 		}
 
-		// ´ò¿ªÉè±¸£º·ÖÅä ctx_¡¢½¨Á¢ÓëÉãÏñÍ·µÄÁ¬½Ó
+		// æ‰“å¼€è®¾å¤‡ï¼šåˆ†é… ctx_ã€å»ºç«‹ä¸æ‘„åƒå¤´çš„è¿æ¥
 		int ret = avformat_open_input(&ctx_, device_name.c_str(), ifmt, &opt);
 		av_dict_free(&opt);
 		if (ret < 0) {
@@ -56,7 +56,7 @@ namespace livepusher {
 			return false;
 		}
 
-		//Ì½²âÁ÷ĞÅÏ¢
+		//æ¢æµ‹æµä¿¡æ¯
 		ret = avformat_find_stream_info(ctx_, nullptr);
 		if (ret < 0) {
 			LOG_ERROR << "Cannot find stream info";
@@ -64,14 +64,14 @@ namespace livepusher {
 			return false;
 		}
 
-		//ÕÒµ½ÒôÆµÁ÷Ë÷Òı
+		//æ‰¾åˆ°éŸ³é¢‘æµç´¢å¼•
 		audio_stream_idx_ = av_find_best_stream(ctx_, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
 		if (audio_stream_idx_ < 0) {
 			LOG_ERROR << "No video stream";
 			close();
 			return false;
 		}
-		// ×¢²áÖĞ¶Ï»Øµ÷
+		// æ³¨å†Œä¸­æ–­å›è°ƒ
 		ctx_->interrupt_callback.callback = &FFmpegAudioCapturer::interrupt_callback_fn;
 		ctx_->interrupt_callback.opaque = this;
 
@@ -90,11 +90,11 @@ namespace livepusher {
 			return false;
 		}
 
-		// Ê±ÖÓ¹éÁã£¬¿ªÊ¼¼ÆÊ±
+		// æ—¶é’Ÿå½’é›¶ï¼Œå¼€å§‹è®¡æ—¶
 		clock_.start();
 		running_.store(true);
 
-		// Æô¶¯²É¼¯Ïß³Ì
+		// å¯åŠ¨é‡‡é›†çº¿ç¨‹
 		capture_thread_ = std::thread(&FFmpegAudioCapturer::capture_loop, this);
 		LOG_INFO << "Capture thread started";
 		return true;
@@ -106,16 +106,16 @@ namespace livepusher {
 			return;
 		}
 
-		// ÏÈÖÃ±êÖ¾£¬ÈÃ capture_loop ÔÚÏÂÒ»Ö¡´¦ÀíÍêºóÍË³ö
+		// å…ˆç½®æ ‡å¿—ï¼Œè®© capture_loop åœ¨ä¸‹ä¸€å¸§å¤„ç†å®Œåé€€å‡º
 		running_.store(false);
 
-		// µÈ´ı²É¼¯Ïß³ÌÍË³ö
-		// dshow ³ÖĞøËÍÖ¡Ê±£¬Ã¿Ö¡´¦ÀíÍê¶¼»á¼ì²é running_£¬ËùÒÔ join ²»»á¿¨×¡
+		// ç­‰å¾…é‡‡é›†çº¿ç¨‹é€€å‡º
+		// dshow æŒç»­é€å¸§æ—¶ï¼Œæ¯å¸§å¤„ç†å®Œéƒ½ä¼šæ£€æŸ¥ running_ï¼Œæ‰€ä»¥ join ä¸ä¼šå¡ä½
 		if (capture_thread_.joinable()) {
 			capture_thread_.join();
 		}
 
-		// ¹Ø±ÕÉè±¸
+		// å…³é—­è®¾å¤‡
 		if (ctx_) {
 			avformat_close_input(&ctx_);
 			ctx_ = nullptr;
@@ -134,20 +134,20 @@ namespace livepusher {
 		stop();
 	}
 
-	// ÒôÆµ²É¼¯Ïß³ÌÖ÷Ñ­»·
-// Ö°Ôğ£º´ÓÂó¿Ë·ç¶Á PCM Êı¾İ ¡ú °ü×°³É AVFrame ¡ú ´òÊ±¼ä´Á ¡ú »Øµ÷¸øÉÏ²ã
+	// éŸ³é¢‘é‡‡é›†çº¿ç¨‹ä¸»å¾ªç¯
+// èŒè´£ï¼šä»éº¦å…‹é£è¯» PCM æ•°æ® â†’ åŒ…è£…æˆ AVFrame â†’ æ‰“æ—¶é—´æˆ³ â†’ å›è°ƒç»™ä¸Šå±‚
 	void FFmpegAudioCapturer::capture_loop() {
 		LOG_INFO << "Audio capture_loop started";
 
-		// ·ÖÅä AVPacket£¨FFmpeg ¶ÁÈ¡µÄÔ­Ê¼Êı¾İ°ü£©
+		// åˆ†é… AVPacketï¼ˆFFmpeg è¯»å–çš„åŸå§‹æ•°æ®åŒ…ï¼‰
 		AVPacket* pkt = av_packet_alloc();
 		if (!pkt) return;
 
-		// È¡³öÒôÆµÁ÷Êµ¼ÊĞ­ÉÌ³öÀ´µÄ²ÎÊı
+		// å–å‡ºéŸ³é¢‘æµå®é™…åå•†å‡ºæ¥çš„å‚æ•°
 		AVStream* stream = ctx_->streams[audio_stream_idx_];
-		int src_sample_rate = stream->codecpar->sample_rate;        // ²ÉÑùÂÊ
-		int src_channels = stream->codecpar->ch_layout.nb_channels; // ÉùµÀÊı
-		AVSampleFormat src_fmt = (AVSampleFormat)stream->codecpar->format; // ²ÉÑù¸ñÊ½
+		int src_sample_rate = stream->codecpar->sample_rate;        // é‡‡æ ·ç‡
+		int src_channels = stream->codecpar->ch_layout.nb_channels; // å£°é“æ•°
+		AVSampleFormat src_fmt = (AVSampleFormat)stream->codecpar->format; // é‡‡æ ·æ ¼å¼
 
 		LOG_INFO << "Audio params: " << src_sample_rate
 			<< "Hz, " << src_channels << "ch"
@@ -156,7 +156,7 @@ namespace livepusher {
 		int frame_count = 0;
 
 		while (running_.load()) {
-			// ´ÓÂó¿Ë·ç¶ÁÒ»°ü PCM Êı¾İ
+			// ä»éº¦å…‹é£è¯»ä¸€åŒ… PCM æ•°æ®
 			int ret = av_read_frame(ctx_, pkt);
 			if (ret < 0) {
 				if (ret != AVERROR_EXIT) {
@@ -165,27 +165,27 @@ namespace livepusher {
 				break;
 			}
 
-			// Ö»´¦ÀíÒôÆµÁ÷£¬ÆäËûÁ÷£¨ÈçÊÓÆµ°ü£©Ö±½Ó¶ª
+			// åªå¤„ç†éŸ³é¢‘æµï¼Œå…¶ä»–æµï¼ˆå¦‚è§†é¢‘åŒ…ï¼‰ç›´æ¥ä¸¢
 			if (pkt->stream_index != audio_stream_idx_) {
 				av_packet_unref(pkt);
 				continue;
 			}
 
-			// ·ÖÅä AVFrame£¬ÓÃÖÇÄÜÖ¸Õë¹ÜÀíÉúÃüÖÜÆÚ
+			// åˆ†é… AVFrameï¼Œç”¨æ™ºèƒ½æŒ‡é’ˆç®¡ç†ç”Ÿå‘½å‘¨æœŸ
 			std::shared_ptr<AVFrame> frame(
 				av_frame_alloc(),
 				[](AVFrame* f) { av_frame_free(&f); }
 			);
 
-			// ÉèÖÃÒôÆµÖ¡²ÎÊı
-			frame->sample_rate = src_sample_rate;           // ²ÉÑùÂÊ
-			frame->ch_layout = stream->codecpar->ch_layout; // ÉùµÀ²¼¾Ö
-			frame->format = src_fmt;                        // ²ÉÑù¸ñÊ½£¨S16£©
-			// ¼ÆËã²ÉÑùµãÊı£º×Ü×Ö½ÚÊı / (ÉùµÀÊı * Ã¿²ÉÑùµã×Ö½ÚÊı)
-			// 16bit = 2 ×Ö½Ú£¬ËùÒÔÃ¿¸ö²ÉÑùµãÕ¼ channels * 2 ×Ö½Ú
+			// è®¾ç½®éŸ³é¢‘å¸§å‚æ•°
+			frame->sample_rate = src_sample_rate;           // é‡‡æ ·ç‡
+			frame->ch_layout = stream->codecpar->ch_layout; // å£°é“å¸ƒå±€
+			frame->format = src_fmt;                        // é‡‡æ ·æ ¼å¼ï¼ˆS16ï¼‰
+			// è®¡ç®—é‡‡æ ·ç‚¹æ•°ï¼šæ€»å­—èŠ‚æ•° / (å£°é“æ•° * æ¯é‡‡æ ·ç‚¹å­—èŠ‚æ•°)
+			// 16bit = 2 å­—èŠ‚ï¼Œæ‰€ä»¥æ¯ä¸ªé‡‡æ ·ç‚¹å  channels * 2 å­—èŠ‚
 			frame->nb_samples = pkt->size / (src_channels * 2);
 
-			// ÎªÖ¡·ÖÅäµ×²ã»º³åÇø
+			// ä¸ºå¸§åˆ†é…åº•å±‚ç¼“å†²åŒº
 			ret = av_frame_get_buffer(frame.get(), 0);
 			if (ret < 0) {
 				LOG_ERROR << "Failed to allocate audio frame buffer";
@@ -193,13 +193,15 @@ namespace livepusher {
 				continue;
 			}
 
-			// ÒôÆµÊı¾İÊÇÁ¬ĞøµÄÒ»¿éÄÚ´æ£¬Ö±½Ó memcpy ¿½±´
+			// éŸ³é¢‘æ•°æ®æ˜¯è¿ç»­çš„ä¸€å—å†…å­˜ï¼Œç›´æ¥ memcpy æ‹·è´
 			memcpy(frame->data[0], pkt->data, pkt->size);
 
-			// dshow ²»Ìá¹© PTS£¬ÓÃ×Ô¼ºµÄµ¥µ÷Ê±ÖÓ´òÊ±¼ä´Á£¨Î¢Ãë£©
-			frame->pts = clock_.elapsed_us();
+			//// dshow ä¸æä¾› PTSï¼Œç”¨è‡ªå·±çš„å•è°ƒæ—¶é’Ÿæ‰“æ—¶é—´æˆ³ï¼ˆå¾®ç§’ï¼‰
+			//frame->pts = clock_.elapsed_us();
+			//2026.10.9ä¿®æ”¹
+			frame->pts = Clock::now_us();
 
-			// Ç°5Ö¡ºÍÃ¿50Ö¡´òÒ»´ÎÈÕÖ¾
+			// å‰5å¸§å’Œæ¯50å¸§æ‰“ä¸€æ¬¡æ—¥å¿—
 			if (frame_count < 5 || frame_count % 50 == 0) {
 				LOG_INFO << "Audio frame " << frame_count
 					<< ": " << frame->nb_samples << " samples"
@@ -207,13 +209,13 @@ namespace livepusher {
 			}
 			frame_count++;
 
-			// °ÑÖ¡½»¸øÉÏ²ã£¨AAC ±àÂëÆ÷£©
+			// æŠŠå¸§äº¤ç»™ä¸Šå±‚ï¼ˆAAC ç¼–ç å™¨ï¼‰
 			if (callback_) callback_(frame);
 
-			// ÊÍ·Å packet µÄÒıÓÃ£¬¸´ÓÃÏÂÒ»´Î
+			// é‡Šæ”¾ packet çš„å¼•ç”¨ï¼Œå¤ç”¨ä¸‹ä¸€æ¬¡
 			av_packet_unref(pkt);
 
-			// Ã¿Ö¡´¦ÀíÍê¼ì²éÔËĞĞ±êÖ¾
+			// æ¯å¸§å¤„ç†å®Œæ£€æŸ¥è¿è¡Œæ ‡å¿—
 			if (!running_.load()) break;
 		}
 

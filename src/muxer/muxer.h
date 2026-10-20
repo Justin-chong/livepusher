@@ -9,34 +9,34 @@ extern "C"{
 
 namespace livepusher {
 
-	//³éÏó·â×°½Ó¿Ú
-	// ÊäÈë£ºH.264/AAC ±àÂë°ü
-	// Êä³ö£ºFLV Á÷£¨ÎÄ¼ş»ò RTMP£©
+	//æŠ½è±¡å°è£…æ¥å£
+	// è¾“å…¥ï¼šH.264/AAC ç¼–ç åŒ…
+	// è¾“å‡ºï¼šFLV æµï¼ˆæ–‡ä»¶æˆ– RTMPï¼‰
 	class Muxer {
 	public:
 		virtual ~Muxer() = default;
-		//´ò¿ªÎÄ¼ş//´ò¿ªURL
+		//æ‰“å¼€æ–‡ä»¶//æ‰“å¼€URL
 		virtual bool open(const std::string& url) = 0;
 
-		//Ìí¼ÓÊÓÆµÁ÷
+		//æ·»åŠ è§†é¢‘æµ
 		/*
-		@prama  ±àÂëÆ÷ÉÏÏÂÎÄ
-		@retuan ÊÓÆµÁ÷Ë÷Òı
+		@prama  ç¼–ç å™¨ä¸Šä¸‹æ–‡
+		@retuan è§†é¢‘æµç´¢å¼•
 		*/
 		virtual int addVideoStream(const AVCodecContext* codec_ctx) = 0;
 
-		//Ìí¼ÓÒôÆµÁ÷
+		//æ·»åŠ éŸ³é¢‘æµ
 		/*
-		@prama ±àÂëÆ÷ÉÏÏÂÎÄ
-		@return ÒôÆµÁ÷Ë÷Òı
+		@prama ç¼–ç å™¨ä¸Šä¸‹æ–‡
+		@return éŸ³é¢‘æµç´¢å¼•
 		*/
 		virtual int addAudioStream(const AVCodecContext* codec_ctx) = 0;
 
-		//Ğ´Í·
+		//å†™å¤´
 		virtual void writeHeader() = 0;
-		//Ğ´°ü
+		//å†™åŒ…
 		virtual void writePacket(std::shared_ptr<AVPacket> pkt, int stream_idx) = 0;
-		//Ğ´Î²²¢¹Ø±Õ
+		//å†™å°¾å¹¶å…³é—­
 		virtual void close() = 0;
 	};
 }

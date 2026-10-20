@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <thread>
 #include <string>
+#include <functional>
 
 #include "log_level.h"
 
@@ -14,6 +15,10 @@ namespace livepusher {
 
 class Logger {
 public:
+    // 日志输出回调：GUI 注册后，每条日志都会通过它转发出去（用于显示到界面）。
+    // 签名：void(const std::string& 已格式化的一行日志)
+    using LogSink = std::function<void(const std::string&)>;
+
     static Logger& instance() {
         static Logger inst;
         return inst;
@@ -27,9 +32,18 @@ public:
         return level_;
     }
 
+    // 注册/取消日志回调。注册后日志会同时发到回调；std::cout 输出保留。
+    void set_sink(LogSink sink) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        sink_ = std::move(sink);
+    }
+
     void write(const std::string& log) {
         std::lock_guard<std::mutex> lock(mutex_);
         std::cout << log << std::endl;
+        if (sink_) {
+            sink_(log);
+        }
     }
 
 private:
@@ -40,6 +54,7 @@ private:
 
     LogLevel level_ = LogLevel::DEBUG;
     std::mutex mutex_;
+    LogSink sink_;
 };
 
 class LogStream {

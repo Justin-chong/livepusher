@@ -72,6 +72,20 @@ public:
         return true;
     }
 
+    // 非阻塞入队：塞满就丢弃，立即返回 false，绝不等待。
+    // 给「采集线程」用——采集必须永远不被下游（编码/网络）拖慢，
+    // 否则 dshow 实时缓冲没人读就会溢出丢帧。
+    bool try_push(const T& item) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        if (closed_) return false;
+        if (queue_.size() >= max_size_) return false;   // 满了，丢
+
+        queue_.push(item);
+        lock.unlock();
+        not_empty_.notify_one();
+        return true;
+    }
+
     size_t size() const {
         std::lock_guard<std::mutex> lock(mutex_);
         return queue_.size();
@@ -88,6 +102,15 @@ public:
         lock.unlock();
         not_empty_.notify_all();
         not_full_.notify_all();
+    }
+
+    // 重新打开队列：清空残留数据、复位 closed 标志，供「停止后再次推流」复用。
+    // 必须在所有生产/消费线程都退出后调用，否则有数据竞争。
+    void reset() {
+        std::unique_lock<std::mutex> lock(mutex_);
+        std::queue<T> empty;
+        std::swap(queue_, empty);
+        closed_ = false;
     }
 
     bool is_closed() const {

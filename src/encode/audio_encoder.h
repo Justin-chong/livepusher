@@ -11,16 +11,16 @@ namespace livepusher {
 	using EncodedPacketCallback = std::function<void(std::shared_ptr<AVPacket> pkt)>;
 	class AudioEncoder {
 	public:
-		virtual ~AudioEncoder() = default;//defaultÊÇÈÃ±àÒëÆ÷×Ô¶¯Éú³ÉÒ»¸ö¿ÕµÄÎö¹¹º¯Êı£¬´¿ĞéÎö¹¹º¯Êı±ØĞëÔÚÀàÍâ¶¨Òå£¬Ğ´ÆğÀ´Âé·³
-		//´ò¿ªÒôÆµ±àÂëÆ÷,ĞèÒªÒôÆµ²ÎÊı
+		virtual ~AudioEncoder() = default;//defaultæ˜¯è®©ç¼–è¯‘å™¨è‡ªåŠ¨ç”Ÿæˆä¸€ä¸ªç©ºçš„ææ„å‡½æ•°ï¼Œçº¯è™šææ„å‡½æ•°å¿…é¡»åœ¨ç±»å¤–å®šä¹‰ï¼Œå†™èµ·æ¥éº»çƒ¦
+		//æ‰“å¼€éŸ³é¢‘ç¼–ç å™¨,éœ€è¦éŸ³é¢‘å‚æ•°
 		virtual bool open(int sample_rate,int channels,int bit_rate)=0;
-		//¹Ø±ÕÒôÆµ±àÂëÆ÷
+		//å…³é—­éŸ³é¢‘ç¼–ç å™¨
 		virtual void close() = 0;
 
-		//ËÍÒôÆµPCMÖ¡±àÂë
+		//é€éŸ³é¢‘PCMå¸§ç¼–ç 
 		virtual void encode(std::shared_ptr<AVFrame> frame) = 0;
 
-		//ÉèÖÃÂëÁ÷»Øµ÷
+		//è®¾ç½®ç æµå›è°ƒ
 		virtual void set_callback(EncodedPacketCallback cb) = 0;
 	};
 

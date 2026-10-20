@@ -62,3 +62,9 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# 本地工作笔记（AI 助手记录，不提交）
+.workbuddy/
+
+# 第三方工具二进制（livego 推流服务器）
+tools/livego/

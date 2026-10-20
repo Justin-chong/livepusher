@@ -79,12 +79,13 @@ bool FFmpegVideoCapturer::open(const std::string& device_name,
         close();
         return false;
     }
-
+    
     // 关键：dshow 给的可能是压缩 MJPEG bitstream（pkt->size 只有几十 KB），
     // 不是未压缩的 YUVJ422P（应该是 614400 bytes）。codecpar->format 显示
     // yuvj422p 是误导，必须看 codec_id 才知道是不是要解码。
     AVStream* stream = ctx_->streams[video_stream_idx_];
     AVCodecID codec_id = stream->codecpar->codec_id;
+    
     LOG_INFO << "Stream codec: " << avcodec_get_name(codec_id)
              << " (id=" << codec_id << ")";
 
@@ -295,8 +296,11 @@ void FFmpegVideoCapturer::capture_loop() {
                 continue;
             }
 
-            // 帧解码成功，打 PTS + 回调
-            frame->pts = clock_.elapsed_us();
+            //// 帧解码成功，打 PTS + 回调
+            //frame->pts = clock_.elapsed_us();
+            //2026.10.9修改
+            frame->pts = Clock::now_us();
+
             if (frame_count < 5 || frame_count % 30 == 0) {
                 LOG_INFO << "Frame " << frame_count
                          << ": " << frame->width << "x" << frame->height

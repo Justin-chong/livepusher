@@ -13,7 +13,7 @@ extern "C" {
 }
 
 namespace livepusher {
-	//ÒôÆµ²É¼¯Æ÷
+	//éŸ³é¢‘é‡‡é›†å™¨
 	class FFmpegAudioCapturer :public AudioCapturer {
 	public:
 		FFmpegAudioCapturer();
@@ -29,20 +29,20 @@ namespace livepusher {
 
 		static int interrupt_callback_fn(void* opaque);
 
-		//·â×°Æ÷ÉÏÏÂÎÄ
+		//å°è£…å™¨ä¸Šä¸‹æ–‡
 		AVFormatContext* ctx_ = nullptr;
-		int audio_stream_idx_ = -1;//ÒôÆµÁ÷Ë÷Òı
+		int audio_stream_idx_ = -1;//éŸ³é¢‘æµç´¢å¼•
 
 
-		//ÒôÆµ²É¼¯Æ÷²ÎÊı
-		int sample_rate_ = 0;//²ÉÑùÂÊ
-		int bit_depth_ = 0;//Î»Éî¶È
-		int channels_ = 0;//ÉùµÀÊı
+		//éŸ³é¢‘é‡‡é›†å™¨å‚æ•°
+		int sample_rate_ = 0;//é‡‡æ ·ç‡
+		int bit_depth_ = 0;//ä½æ·±åº¦
+		int channels_ = 0;//å£°é“æ•°
 
-		//»Øµ÷º¯Êı
+		//å›è°ƒå‡½æ•°
 		AudioFrameCallback callback_;
 		
-		//ÒôÆµ²É¼¯Æ÷ÔËĞĞ±êÖ¾
+		//éŸ³é¢‘é‡‡é›†å™¨è¿è¡Œæ ‡å¿—
 		std::atomic<bool> running_{ false };
 
 		std::thread capture_thread_;

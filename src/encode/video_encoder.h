@@ -9,26 +9,26 @@ extern "C" {
 }
 
 namespace livepusher {
-	// ±àÂëºóµÄÂëÁ÷»Øµ÷£ºÃ¿±àÂë³öÒ»¸ö°ü£¬¾Íµ÷ÓÃÒ»´Î		//º¯Êı½ÓÊÕ²ÎÊı
+	// ç¼–ç åçš„ç æµå›è°ƒï¼šæ¯ç¼–ç å‡ºä¸€ä¸ªåŒ…ï¼Œå°±è°ƒç”¨ä¸€æ¬¡		//å‡½æ•°æ¥æ”¶å‚æ•°
 	using EncodedPacketCallback = std::function<void(std::shared_ptr<AVPacket> pkt)>;
 
-	//ÊÓÆµ±àÂëÆ÷,³éÏó½Ó¿Ú£¬ÎªÁË²»Í¬µÄÊÓÆµ±àÂëĞ­Òé
-	//- ÊäÈë£ºYUV Ö¡£¨AVFrame£©
-	//-Êä³ö£ºH.264 ÂëÁ÷°ü£¨AVPacket£©
+	//è§†é¢‘ç¼–ç å™¨,æŠ½è±¡æ¥å£ï¼Œä¸ºäº†ä¸åŒçš„è§†é¢‘ç¼–ç åè®®
+	//- è¾“å…¥ï¼šYUV å¸§ï¼ˆAVFrameï¼‰
+	//-è¾“å‡ºï¼šH.264 ç æµåŒ…ï¼ˆAVPacketï¼‰
 	class VideoEncoder {
 	public:
 		virtual ~VideoEncoder() = default;
-		//´ò¿ª±àÂëÆ÷
-		// width/height: ·Ö±æÂÊ£¬fps: Ö¡ÂÊ£¬bitrate: Ä¿±êÂëÂÊ£¨bps£©
+		//æ‰“å¼€ç¼–ç å™¨
+		// width/height: åˆ†è¾¨ç‡ï¼Œfps: å¸§ç‡ï¼Œbitrate: ç›®æ ‡ç ç‡ï¼ˆbpsï¼‰
 		virtual bool open(int width,int height,int fps,int bitrate) = 0;
 
-		//ËÍÒ»Ö¡ YUV ½øÈ¥±àÂë
+		//é€ä¸€å¸§ YUV è¿›å»ç¼–ç 
 		virtual void encode(std::shared_ptr<AVFrame> frame) = 0;
 
-		// ÉèÖÃÂëÁ÷»Øµ÷£¬»Øµ÷Ê±ĞèÒªÖ´ĞĞµÄÂß¼­
+		// è®¾ç½®ç æµå›è°ƒï¼Œå›è°ƒæ—¶éœ€è¦æ‰§è¡Œçš„é€»è¾‘
 		virtual void set_callback(EncodedPacketCallback cb) = 0;
 
-		//¹Ø±Õ±àÂëÆ÷
+		//å…³é—­ç¼–ç å™¨
 		virtual void close() = 0;
 
 

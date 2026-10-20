@@ -14,19 +14,19 @@ namespace livepusher {
 	public:
 		virtual ~AudioCapturer() = default;
 
-		// ´ò¿ªÉè±¸£¬·µ»ØÊÇ·ñ³É¹¦,ÒôÆµ²ÎÊı
+		// æ‰“å¼€è®¾å¤‡ï¼Œè¿”å›æ˜¯å¦æˆåŠŸ,éŸ³é¢‘å‚æ•°
 		virtual bool open(const std::string& device_name,
 			int bit_depth,int channels) = 0;
-		// Æô¶¯²É¼¯Ïß³Ì
+		// å¯åŠ¨é‡‡é›†çº¿ç¨‹
 		virtual bool start() = 0;
 
-		// Í£Ö¹²É¼¯£¬µÈ´ıÏß³ÌÍË³ö
+		// åœæ­¢é‡‡é›†ï¼Œç­‰å¾…çº¿ç¨‹é€€å‡º
 		virtual void stop() = 0;
 
-		// ÉèÖÃÖ¡»Øµ÷
+		// è®¾ç½®å¸§å›è°ƒ
 		virtual void set_callback(AudioFrameCallback cb) = 0;
 
-		// ¹Ø±ÕÉè±¸£¬ÊÍ·Å×ÊÔ´
+		// å…³é—­è®¾å¤‡ï¼Œé‡Šæ”¾èµ„æº
 		virtual void close() = 0;
 	};
 

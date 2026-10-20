@@ -8,9 +8,11 @@ namespace livepusher {
 class Clock {
 public:
     static int64_t now_us() {
+        // 进程级静态起点：第一次调用时记录，之后所有调用都减它
+        // 这样返回的是「进程启动以来的相对微秒」，全进程共享同一个 0 点
+        static auto origin = std::chrono::steady_clock::now();//static 局部变量的初始化只执行一次。
         auto now = std::chrono::steady_clock::now();
-        auto duration = now.time_since_epoch();
-        auto us = std::chrono::duration_cast<std::chrono::microseconds>(duration);
+        auto us = std::chrono::duration_cast<std::chrono::microseconds>(now - origin);
         return us.count();
     }
 
