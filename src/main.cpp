@@ -51,5 +51,13 @@ int main(int argc, char* argv[]) {
     MainWindow window;
     window.show();
 
+#ifdef _WIN32
+    // 确保窗口出现在最前面：从文件管理器双击启动时，
+    // 有时窗口会留在后台不抢焦点，用户以为"没弹出来"。
+    window.raise();
+    window.activateWindow();
+    SetForegroundWindow(reinterpret_cast<HWND>(window.winId()));
+#endif
+
     return app.exec();
 }

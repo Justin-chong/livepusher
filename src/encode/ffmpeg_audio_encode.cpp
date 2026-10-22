@@ -24,6 +24,9 @@ namespace livepusher {
 		sample_rate_ = sample_rate;
 		channels_ = channels;
 		bit_rate_ = bit_rate;
+		// 每次 open 重置累计状态（否则第二次推流 pts 会从上次的采样点继续累加）
+		total_samples_ = 0;
+		audio_origin_us_ = -1;
 
 		//1.查找音频编码器 aac：codec_ 是只读的"编码器描述"，ctx_ 是可写的"编码参数"
 		codec_ = avcodec_find_encoder_by_name("aac");
@@ -49,6 +52,12 @@ namespace livepusher {
 		}
 		ctx_->bit_rate = bit_rate_;
 		ctx_->sample_fmt = AV_SAMPLE_FMT_FLTP;
+		// 时间基：音频的时间单位是采样点，1/采样率 秒一个采样点。
+		// 必须显式设置！不设的话 avcodec_alloc_context3 默认是 {0,1}（分子 0），
+		// 之后 av_packet_rescale_ts 用这个 time_base 换算 pts 会除零，
+		// 导致所有音频帧 pts 堆在 0 → 音画不同步、录制 mp4 被"快进"。
+		// 视频编码器设的是 {1,fps}，音频对应设 {1,sample_rate}，语义一致。
+		ctx_->time_base = { 1, sample_rate_ };
 		// FLV/RTMP 推流必须设 global header：
 		// 让 AAC 编码器把 AudioSpecificConfig(ASC) 放到 extradata 里，
 		// 输出「不带 ADTS 头的裸 AAC」，而不是每包都带 7 字节 ADTS 头。

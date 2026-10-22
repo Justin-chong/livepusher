@@ -68,3 +68,6 @@ Thumbs.db
 
 # 第三方工具二进制（livego 推流服务器）
 tools/livego/
+
+# 本地编译脚本（含本机绝对路径，不提交）
+build_release.bat
