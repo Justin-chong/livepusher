@@ -24,7 +24,6 @@ int main(int argc, char* argv[]) {
 #ifdef _WIN32
     SetConsoleOutputCP(CP_UTF8);
 #endif
-
     // ===== FFmpeg 环境自检 =====
     std::cout << "====== FFmpeg Environment Check ======" << std::endl;
     std::cout << "avformat version: " << avformat_version() << std::endl;
@@ -45,7 +44,7 @@ int main(int argc, char* argv[]) {
     std::cout << "[OK] avdevice registered, version: "
               << avdevice_version() << std::endl;
 
-    // ===== Qt 应用启动 =====
+    //Qt 应用启动
     QApplication app(argc, argv);
 
     MainWindow window;
