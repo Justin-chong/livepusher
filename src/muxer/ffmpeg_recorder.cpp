@@ -85,6 +85,7 @@ void FFmpegRecorder::writeHeader() {
     LOG_INFO << "recorder write header ok";
 }
 
+//录制的写包不需要应对弱网处理
 void FFmpegRecorder::writePacket(std::shared_ptr<AVPacket> pkt, int stream_idx) {
     if (!ctx_ || stream_idx < 0) return;
 
