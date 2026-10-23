@@ -19,13 +19,13 @@ public:
 	FFmpegVideoCapturer();
 
 	~FFmpegVideoCapturer()override;
-
+	//打开
 	bool open(const std::string& device_name, int width, int height, int fps) override;
-
+	//开始
 	bool start() override;
-
+	//停止
 	void stop() override;
-
+	//关闭
 	void close() override;
 
 	void set_callback(VideoFrameCallback cb) override;
