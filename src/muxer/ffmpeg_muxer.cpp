@@ -137,7 +137,7 @@ namespace livepusher {
 		AVStream* stream = ctx_->streams[stream_idx];
 		av_packet_rescale_ts(new_pkt, pkt->time_base, stream->time_base);
 
-		//写入
+		//写入Socket缓冲区或写入本地文件MP4中
 		int ret = av_interleaved_write_frame(ctx_, new_pkt);
 		av_packet_free(&new_pkt);
 
