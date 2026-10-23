@@ -81,7 +81,7 @@ bool PusherController::start(const std::string& url, VideoSource video_source,
     // 兜底：确保队列处于可用状态（防止上次异常退出没走 reset）。
     video_queue_.reset();
     audio_queue_.reset();
-
+    //Initialize libavdevice and register all the input and output devices.
     avdevice_register_all();
 
     // 1. 根据视频源确定采集设备名。
