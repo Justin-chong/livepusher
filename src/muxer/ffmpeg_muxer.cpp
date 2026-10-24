@@ -246,10 +246,12 @@ namespace livepusher {
 		return true;
 	}
 
-	// ===== 弱网处理（进阶）：发送速率估算 =====
+	// ===== 弱网处理（决策行为）：发送速率估算 =====
 	// 基于 AVIOContext::bytes_written 的增量，算「两次调用之间」的平均发送速率（bps）。
 	// 这个速率是「真正发进 socket 的字节数/时间」，比目标码率更真实地反映上行带宽。
 	// 当它明显低于目标码率时，说明数据在积压（阶段1），要提前降码率。
+	//用两次调用后的写入字节增量/两次调用的时间间隔=这段时间平均速率
+	//但是第一次调用计算不出平均速率
 	int64_t FFmpegMuxer::estimateSendRate()
 	{
 		// 拿锁：ctx_ 和 pb 可能在 reconnect 里被关掉/重建，避免 use-after-free。
