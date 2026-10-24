@@ -260,6 +260,10 @@ bool PusherController::start(const std::string& url, VideoSource video_source,
         // ===== 本地预览：把同一帧额外转成 RGB24 回调给 GUI =====
         // 预览也缩到编码器尺寸，避免大分辨率 swscale 的 CPU 浪费
         // （反正窗口显示时还要缩小）。
+        //采集帧(yuvj422p / bgra)
+        //    ├─→ 转 YUV420P → video_queue_ → 编码线程（慢，走完整编码）
+        //    └─→ 转 RGB24   → 直接回调 GUI（快，不过编码器）
+
         if (preview_cb_) {
             if (!*preview_sws) {
                 *preview_sws = sws_getContext(

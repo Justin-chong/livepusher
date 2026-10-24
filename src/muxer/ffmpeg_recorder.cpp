@@ -85,7 +85,7 @@ void FFmpegRecorder::writeHeader() {
     LOG_INFO << "recorder write header ok";
 }
 
-//录制的写包不需要应对弱网处理
+//录制的写包不需要应对弱网处理（等到后面再加一个编码器，单独应对录制，因为录制的视频不能降质，现在弱网会降质，因为录制和封装公用一个编码器）
 void FFmpegRecorder::writePacket(std::shared_ptr<AVPacket> pkt, int stream_idx) {
     if (!ctx_ || stream_idx < 0) return;
 
