@@ -565,3 +565,22 @@ time_base 是 pts 的单位，秒 = pts × time_base。视频 {1,fps}、音频 {
     不是。预览在编码之前，和编码是两条并列支路，都在 handle_video_frame(采集线程)里完成：
     采集帧 → ①转 YUV420P 入 video_queue_（走编码）②转 RGB24 直接回调 GUI（预览，不过编码器）。
     预览不经过编码：没必要（显示画面直接用采集帧转 RGB 即可，编成 H.264 再解回来又慢又浪费 CPU）。
+
+21. **stop() 的收尾流程？**
+    核心原则「先停生产者→关管道→等消费者退出→回收资源」，是 start() 的镜像。
+    顺序：①running_=false ②停采集器(源头) ③close 队列(唤醒阻塞 pop 的编码线程)
+    ④join 监控线程 ⑤join 编码线程 ⑥关编码器/muxer/录制器。
+    三个关键点：
+    - 先停采集器再关队列：生产者还在往里 push，队列关不干净。
+    - close() vs reset()：close 永久关(编码线程 pop 返回 false 退出)，reset 复位供下次 start；
+      不复位则第二次推流所有帧被丢弃(坑18)。
+    - recorder_.close() 放编码线程 join 之后：MP4 写 moov 尾前要确保没线程还在写录制器，否则数据错乱。
+
+22. **PreviewWidget 这个类怎么工作？**
+    自定义预览控件：setFrame 存最新帧 + update() 请求重绘；paintEvent 里画 frame_。
+    - setFrame：主线程调，frame_=img 覆盖旧帧 + update()。
+    - update() 是异步重绘请求：投递事件到队列，Qt 事件循环空闲才调 paintEvent；可任何线程调、自动合并多次。
+    - paintEvent：一定在主线程执行，QPainter 自绘。
+    - 继承 QWidget 而非 QLabel：为自定义等比缩放(KeepAspectRatio 居中留黑边)，解决 QLabel setScaledContents 拉伸变形。
+    跨线程链路：采集线程转 RGB→preview_cb_→QueuedConnection 投递→主线程 setFrame→事件循环 paintEvent。
+    面试点：Qt 自定义绘制=重写 paintEvent + update() 触发，不能直接调 paint（绘制须在 GUI 线程由事件循环调度）。
