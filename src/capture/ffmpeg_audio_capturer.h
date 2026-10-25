@@ -45,6 +45,7 @@ namespace livepusher {
 		//音频采集器运行标志
 		std::atomic<bool> running_{ false };
 
+		//工作线程。执行采集循环capture_loop
 		std::thread capture_thread_;
 
 		Clock clock_;

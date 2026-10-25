@@ -117,8 +117,6 @@ private:
     ThreadSafeQueue<std::shared_ptr<AVFrame>> audio_queue_{ 64 };
 
     // ===== 线程 =====
-    std::thread video_capture_thread_;
-    std::thread audio_capture_thread_;
     std::thread video_encode_thread_;
     std::thread audio_encode_thread_;
     std::thread monitor_thread_;

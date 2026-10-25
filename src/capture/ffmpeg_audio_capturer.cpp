@@ -209,7 +209,7 @@ namespace livepusher {
 			}
 			frame_count++;
 
-			// 把帧交给上层（AAC 编码器）
+			// 把帧交给上层（AAC 编码器），调用回调函数
 			if (callback_) callback_(frame);
 
 			// 释放 packet 的引用，复用下一次

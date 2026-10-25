@@ -308,7 +308,7 @@ void FFmpegVideoCapturer::capture_loop() {
                          << ", pts=" << frame->pts;
             }
             frame_count++;
-
+            //调用puser_controller中的start()的回调函数handle_video_frame，转 yuv420p 入编码队列 + 转 RGB 做本地预览。
             if (callback_) callback_(frame);
         } else {
             // RAWVIDEO 路径（如果以后 dshow 输出未压缩数据）

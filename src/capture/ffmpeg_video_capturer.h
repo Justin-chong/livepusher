@@ -56,6 +56,7 @@ private:
 
 	std::thread capture_thread_;
 
+	//每采集到一帧，就调用该函数
 	VideoFrameCallback callback_;
 
 	Clock clock_;

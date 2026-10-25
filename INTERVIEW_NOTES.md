@@ -107,6 +107,9 @@
 - **踩的坑（重要教训）**：一开始误判成 B 帧，加了 `max_b_frames=0` 后 `dts==pts` 了  
   但仍全 I 帧，才排除 B 帧、转向格式不匹配。**排查顺序：先看数据格式对不对，再看帧类型参数。**
 - **解法**：补 swscale，把 `yuvj422p` 转成 `yuv420p` 再喂给编码器。
+- **swscale 放哪（关键）**：在采集回调 `handle_video_frame` 里（运行在采集线程），
+  即「解码之后、入编码队列之前」。采集器内部只解码（MJPEG→yuvj422p），编码器 encode 只编码
+  （假设收到已是 yuv420p），格式转换是夹在中间的那一步，漏了就退化成全 I 帧。
 
 ### 坑 4：设备名硬编码
 
@@ -584,3 +587,168 @@ time_base 是 pts 的单位，秒 = pts × time_base。视频 {1,fps}、音频 {
     - 继承 QWidget 而非 QLabel：为自定义等比缩放(KeepAspectRatio 居中留黑边)，解决 QLabel setScaledContents 拉伸变形。
     跨线程链路：采集线程转 RGB→preview_cb_→QueuedConnection 投递→主线程 setFrame→事件循环 paintEvent。
     面试点：Qt 自定义绘制=重写 paintEvent + update() 触发，不能直接调 paint（绘制须在 GUI 线程由事件循环调度）。
+
+23. **采集器和采集线程是什么关系？分别干什么？**
+    关系是「对象拥有线程」，不是并列的两个东西。
+    - 采集器(FFmpegVideoCapturer 对象)：封装设备 ctx_/解码器 codec_ctx_/回调 callback_/running_/capture_thread_ 等，
+      提供 open/start/stop/set_callback 接口，由主线程调用。
+    - 采集线程(capture_thread_)：采集器的成员之一，只跑 capture_loop(读帧→解码→回调)，在 start() 里 std::thread 创建。
+    回调执行位置：capture_loop 里 callback_(frame) 触发时，handle_video_frame 在采集线程里执行(非主线程)。
+    为什么分开：用对象封装线程，把"线程管理"和"线程干的事"分离，对外黑盒、生命周期可控。
+    模式：std::thread 存成员，stop 时 join/detach 回收。
+
+24. **全部回调的注册点/触发点/执行线程总表**
+    核心规律：所有回调「主线程注册(一次性)，工作线程触发(反复)」。
+    - 视频采集回调：start注册(主) / capture_loop 触发 / 采集线程执行 / 转YUV+入队+预览
+    - 音频采集回调：start注册 / capture_loop 触发 / 采集线程 / 记 audio_origin_us_+audio_started_+入队(不转格式)
+    - 视频编码回调：start注册 / encode() 触发 / 编码线程 / 写推流+录制双 muxer
+    - 音频编码回调：start注册 / encode() 触发 / 编码线程 / 丢负pts(pkt->pts<0)+写双 muxer
+    - 预览回调：MainWindow注册 / handle_video_frame 触发 / 采集线程 / 转RGB24给GUI
+    - 断线回调：start注册 / writePacket 触发 / 编码线程 / 只通知(不重连，锁内重入死锁，重连交监控线程)
+    - Stats/日志sink：MainWindow注册 / monitorLoop(500ms) 或 LOG_XXX 触发 / 监控线程 / QueuedConnection 投主线程
+    关键差异：预览回调在采集线程(处理编码前帧)，编码回调在编码线程(处理编码后包)，断线回调在编码线程(写包时)。
+    - 日志 sink：触发线程不固定(谁调 LOG 谁触发)，传字符串，QueuedConnection 投主线程 appendPlainText。
+    - Stats 回调：监控线程每 500ms 触发，传纯数据结构体 Stats(码率档位/发送速率/断线/时长)，投主线程刷新 label。
+      为什么传纯数据不传 Qt 对象：跨线程传 Qt 对象有隐患(内存管理/隐式共享)，纯数据最安全(同预览传裸指针道理)。
+
+27. **swscale 在采集末尾还是编码前？**
+    两者是同一位置：在「采集回调 handle_video_frame」里，运行在采集线程，入编码队列之前。
+    三个位置排除：采集器内部只有解码(MJPEG→yuvj422p)不做 swscale；handle_video_frame 做 swscale(转 yuv420p+缩放)；
+    编码器 encode 只编码不转换(假设收到已是 yuv420p)。
+    坑3 的教训：漏了中间这一环 → 解码出 yuvj422p 直接喂编码器 → 按 4:2:0 读 4:2:2 → 色度错位 → 帧间参考建立不起 → 退化成全 I 帧。
+    所以 swscale 必须放「解码之后、编码之前」，即采集回调，不能省。
+
+25. **videoEncodeLoop 和 FFmpegVideoEncoder::encode 的区别？为什么采集线程在采集器里、编码线程在 controller 里？**
+    - videoEncodeLoop vs encode：前者是「线程主循环」(线程入口)，后者是「编码器的一个方法」(编一帧)。
+      关系：videoEncodeLoop 运行在编码线程里，循环体里调 encode。线程跑的是 videoEncodeLoop，encode 只是其中一步。
+    - 为什么采集线程在采集器里：采集 av_read_frame 是阻塞 IO，采集器是"自足的源头"，线程封内部最自然。
+    - 为什么编码线程在 controller 里：videoEncodeLoop 要读队列(video_queue_)+看标志(drop_video_/force_idr_)+调编码器，
+      这些全是 controller 成员；编码器不持有队列/标志，无法自足，需 controller 统一调度。
+    - 死代码：pusher_controller.h 里 video_capture_thread_/audio_capture_thread_ 只有声明从未使用，
+      是早期"采集线程也放 controller"方案的残留，可删除。
+
+26. **断线回调的注册点在哪？为什么回调体只有 LOG_ERROR？**
+    注册点：start() 里 muxer_.setDisconnectCallback(lambda{LOG_ERROR})，回调体只有一行日志。
+    断线两条线并行：断线回调(只通知打日志) vs monitorLoop(真正降档+重连)。
+    触发点：writePacket 连续写失败达阈值(3次)且未触发过 → disconnected_=true + disconnect_callback_(ret)。
+    处理点：monitorLoop 每 500ms 轮询 isDisconnected() → 降档 + muxer_.reconnect + force_idr_=true。
+    为什么回调不直接重连：回调在 writePacket 持 write_mutex_ 锁时触发，reconnect 也要拿同一把锁 → 锁内重入死锁。
+    所以「回调只标记+通知，重连交监控线程轮询」，靠 disconnected_ 原子标志解耦(坑13/14)。
+
+---
+
+## 八、通用音视频面试题库（高频，2026-10-25 整理）
+
+> 脱离项目本身的音视频基础知识，面试官最常问。按考点分类，每题给答案要点。
+
+### 8.1 音视频基础
+
+**Q1 YUV 是什么？为什么传输不用 RGB？420/422/444 区别？**
+- YUV 把亮度(Y)和色度(U/V)分离。人眼对亮度敏感、对色度不敏感，所以可以降采样色度省带宽。
+- RGB 三通道同等重要，无法压缩；YUV 可做色度抽样。
+- 420：4 个像素共享 1 组 UV（每像素 1.5 字节）；422：2 个像素共享 1 组 UV（2 字节）；444：不降采样（3 字节）。
+- 项目里：摄像头 yuvj422p(422)、编码 yuv420p(420)、预览 RGB24。
+
+**Q2 音频采样率/位深/声道/码率的关系？码率怎么算？**
+- 码率 = 采样率 × 位深 × 声道数。例：44100 × 16 × 2 = 1.41Mbps（CD 音质 PCM）。
+- 采样率决定能还原的最高频率（奈奎斯特：最高频率 = 采样率/2，44100 能还原到 22.05kHz，覆盖人耳 20kHz）。
+- 位深决定动态范围，声道数决定立体声。
+
+**Q3 帧率/分辨率/码率三者的关系？**
+- 各自定义：分辨率=单帧像素数(决定精细度)、帧率=每秒帧数(决定流畅度)、码率=每秒比特数(决定带宽)。
+- 未压缩：原始码率 = 分辨率 × 帧率 × 每像素位数。例：1080p30 YUV420P ≈ 746Mbps。
+- 压缩后三者此消彼长：码率是独立设定的"总量"，分辨率和帧率是"来分总量的两个消耗者"。
+  每像素比特数 = 码率 ÷ (分辨率 × 帧率)，这个值决定画质。
+- 核心结论：码率固定时，分辨率↑或帧率↑ → 每像素比特↓ → 单帧更糊。
+  例：2Mbps 下 1080p30 每像素 0.032 bit，720p30 是 0.072 bit(2倍多) → 720p 反而更清晰。
+- 面试金句：码率是"水"，分辨率/帧率是"要浇的田"，水固定则田越大每块分到越少。
+- 项目体现：弱网降级路径 = 先砍码率(1M→500k→300k)再砍帧率(丢帧=帧率减半)，不动分辨率。
+
+### 8.2 视频编码 H.264
+
+**Q4 H.264 编码的核心流程？**
+- 帧内/帧间预测 → 变换(DCT) → 量化 → 熵编码(CABAC/CAVLC)。
+- 预测：帧内用相邻块预测，帧间用运动估计找参考块；变换把空间域转频率域；量化是主要的有损环节；熵编码是无损压缩。
+- 编码器输出的是残差+运动矢量+参数，不是像素。
+
+**Q5 GOP 是什么？I/P/B 帧区别？**
+- GOP(Group of Pictures) = 两个 I 帧之间的帧序列，I 帧是随机访问点。
+- I 帧：帧内编码，完整画面，最大；P 帧：前向预测，参考前面 I/P；B 帧：双向预测，最小但不能被参考。
+- 项目里 gop_size=30（每 30 帧一个 I 帧），max_b_frames=0（关 B 帧）。
+
+**Q6 码率控制 CBR/VBR/ABR/CRF 区别？**
+- CBR(恒定码率)：码率恒定，适合固定带宽传输（直播），但复杂画面会糊。
+- VBR(可变码率)：码率随内容复杂度变，画质稳但带宽波动大。
+- ABR(平均码率)：介于两者，限制平均码率。
+- CRF(恒定质量)：x264 用的质量模式，固定质量、码率不定，适合本地存储。
+- 项目用 CBR（直播推流要求带宽稳定）。
+
+**Q7 为什么要关 B 帧？**
+- B 帧需要参考未来帧 → 编码器要缓存重排 → 增加编码延迟 + 解码延迟。
+- 直播/低延迟场景关 B 帧（dts==pts，不需要重排）；点播/存档可开 B 帧省码率。
+- 项目 max_b_frames=0，为低延迟推流。
+
+### 8.3 音频编码 AAC
+
+**Q8 AAC 为什么比 MP3 好？**
+- 更先进的编码算法，同码率下音质更好；支持更多采样率和声道；有更多工具（SBR、PS 等）。
+- 项目用 FFmpeg 原生 AAC（128kbps 单声道）。
+
+**Q9 ADTS 头 vs 裸 AAC 流？FLV 推流为什么去 ADTS？**
+- ADTS 是 AAC 的封装格式，每帧带 7 字节头（含采样率、声道信息），适合流式传输/文件存储。
+- 裸流(RAW AAC)不带头，参数放在 out-of-band（FLV 的 AudioSpecificConfig / MP4 的 esds）。
+- FLV 推流必须用裸 AAC + AV_CODEC_FLAG_GLOBAL_HEADER，把 ASC 放进 extradata，否则播放器不知道参数。
+
+### 8.4 封装格式
+
+**Q10 FLV 和 MP4 区别？为什么直播用 FLV、点播用 MP4？**
+- FLV：流式格式，边生成边发，无索引，可随时断；适合直播/实时传输。
+- MP4：有 moov 索引，必须写尾才能播放，随机访问强；适合点播/存档。
+- 直播用 FLV（断流不致命），点播用 MP4（要 seek、要完整）。
+
+**Q11 MP4 的 moov box 为什么最好放文件头（faststart）？**
+- moov 存所有帧的索引，默认在文件尾 → 播放器要下载完整个文件才能开始播。
+- faststart 把 moov 挪到文件头 → 边下边播。
+- 项目录制时 av_write_trailer 写尾，本地播放无所谓；若做点播要 faststart。
+
+### 8.5 传输协议
+
+**Q12 RTMP 协议原理？为什么基于 TCP？**
+- RTMP = 应用层协议，基于 TCP。流程：握手(3 次) → 建连接 → 建流 → 播放/推流。
+- 数据切成 chunk 传输，消息(chunk)有 message type（音/视频/控制）。
+- 基于 TCP 因为要可靠传输：TCP 不丢包（丢了自己重传），弱网表现是延迟累积而非丢包。
+
+**Q13 RTMP / HLS / HTTP-FLV / WebRTC 对比？延迟？**
+- RTMP：1-3s 延迟，需 Flash/专门播放器，推流端主流。
+- HLS：10-30s（切片），基于 HTTP，兼容性好，苹果推，适合点播/回放。
+- HTTP-FLV：1-3s，基于 HTTP，比 RTMP 更易穿透 CDN，拉流端主流。
+- WebRTC：<500ms 超低延迟，基于 UDP + RTP，适合连麦/互动。
+- SRT/QUIC：抗弱网，适合远距离传输。
+
+### 8.6 音画同步
+
+**Q14 音视频同步怎么做？三种方式？**
+- 以音频为主时钟（audio master）：视频追音频，最常用（人对声音敏感）。
+- 以视频为主时钟：音频追视频。
+- 外部时钟：两者都追外部时钟。
+- 原理：比较 pts 和 master clock，视频早了就等、晚了就丢帧；音频做重采样微调。
+
+**Q15 推流延迟来源？怎么优化？**
+- 来源：采集缓冲、编码延迟(B帧)、网络传输、播放器缓冲(JB)、CDN 分发。
+- 优化：关 B 帧、降低 GOP、减小播放器缓冲、用低延迟协议(WebRTC/HTTP-FLV)、丢旧帧不丢新帧。
+
+### 8.7 FFmpeg / 工程
+
+**Q16 FFmpeg 常用模块？**
+- libavcodec(编解码)、libavformat(封装/解封装)、libavutil(工具)、libswscale(图像转换/缩放)、libswresample(音频重采样)、libavdevice(设备采集)。
+- 项目全用到了。
+
+**Q17 av_read_frame 和 avcodec_receive_frame 区别？**
+- av_read_frame 从容器读 AVPacket（可能是压缩的，未解码）。
+- avcodec_receive_frame 从解码器取 AVFrame（已解码的像素/采样）。
+- 采集流程：av_read_frame 拿 MJPEG 包 → avcodec_send_packet 送解码器 → avcodec_receive_frame 拿 YUV 帧。
+
+**Q18 为什么采集/编码/推流要分线程？**
+- 采集是阻塞 IO（等设备送帧），编码是 CPU 密集，推流是网络 IO（可能阻塞）。
+- 任何一层阻塞都不能反噬上一层，否则 dshow 缓冲溢出丢帧。用有界队列解耦。
+- 生产者-消费者模型，采集侧 try_push 非阻塞丢帧。

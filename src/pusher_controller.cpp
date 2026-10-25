@@ -282,16 +282,18 @@ bool PusherController::start(const std::string& url, VideoSource video_source,
                 sws_scale(*preview_sws,
                           frame->data, frame->linesize, 0, frame->height,
                           rgb->data, rgb->linesize);
-
+                //跨线程不能直接传QImage，
                 preview_cb_(rgb->data[0], enc_w, enc_h);
             }
         }
     };
 
     // 摄像头和屏幕共用同一个帧处理逻辑
+    //注册采集回调
     video_capturer_.set_callback(handle_video_frame);
     screen_capturer_.set_callback(handle_video_frame);
 
+    //注册音频采集回调
     audio_capturer_.set_callback([this](std::shared_ptr<AVFrame> frame) {
         audio_started_.store(true);
         if (audio_origin_us_.load() < 0) {
@@ -393,7 +395,7 @@ void PusherController::stop() {
     LOG_INFO << "===== pusher stopped =====";
 }
 
-// ===== 视频编码线程 =====
+//视频编码（循环取队列帧 + 做控制逻辑 + 调 encode）
 void PusherController::videoEncodeLoop() {
     std::shared_ptr<AVFrame> frame;
     while (video_queue_.pop(frame)) {
@@ -407,7 +409,7 @@ void PusherController::videoEncodeLoop() {
                 continue;   // 跳过这帧，不编码
             }
         }
-
+        // 强制 I 帧
         if (force_idr_.exchange(false)) {
             frame->pict_type = AV_PICTURE_TYPE_I;
         }
@@ -417,14 +419,14 @@ void PusherController::videoEncodeLoop() {
         if (want != video_encoder_.getCodecCtx()->bit_rate) {
             video_encoder_.setBitrate(want);
         }
-
+        //调用编码器编码函数，只做"送帧编码取包回调"
         video_encoder_.encode(frame);
     }
     video_encoder_.encode(nullptr);  // 冲刷
     LOG_INFO << "video encode thread exit";
 }
 
-// ===== 音频编码线程 =====
+// 音频编码
 void PusherController::audioEncodeLoop() {
     std::shared_ptr<AVFrame> frame;
     while (audio_queue_.pop(frame)) {
