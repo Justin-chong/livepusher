@@ -253,6 +253,8 @@ bool PusherController::start(const std::string& url, VideoSource video_source,
         // 微秒 → 帧单位（time_base = {1, fps}）：pts = 微秒 * fps / 1e6
         yuv->pts = delta_us * fps / 1000000;
 
+        //丢的是新帧，虽然会保证数据完整性，但是因为旧帧一直积累，新帧被丢弃，就会导致延迟积累
+        //优化点：将丢新帧 改为 丢旧帧（适合直播，低延迟）
         if (!video_queue_.try_push(yuv)) {
             LOG_WARN << "video queue full, drop frame";
         }
@@ -456,7 +458,7 @@ void PusherController::monitorLoop() {
     static constexpr int kLowRateSamplesToDowngrade = 4;
     static constexpr double kCongestRatio = 0.8;
     int low_rate_count = 0;
-
+    //只要推流器没退出，就一直循环，每500ms调用一次，获取发送字节增量/时间间隔=发送速率
     while (running_.load()) {
         // ---- 阶段2：断线 → 降档 + 重连 ----
         if (muxer_.isDisconnected()) {
@@ -484,13 +486,17 @@ void PusherController::monitorLoop() {
         }
 
         // ---- 阶段1：发送速率监控（提前降档 + 最低档丢帧）----
+        //false 代表没断，则可以计算发送速率
         if (!muxer_.isDisconnected()) {
             int64_t send_rate = muxer_.estimateSendRate();
             int cur_bitrate = target_bitrate_.load();
             if (send_rate > 0 && cur_bitrate > 0) {
+                //发送速率<目标速率*0.8  降档处理
                 if (send_rate < static_cast<int64_t>(cur_bitrate * kCongestRatio)) {
                     ++low_rate_count;
+                    //降档降到底
                     if (low_rate_count >= kLowRateSamplesToDowngrade) {
+                        //bitrate_level_开始是0挡
                         if (bitrate_level_.load() < kBitrateLevels - 1) {
                             // 还能降档：继续降码率
                             int nl = bitrate_level_.load() + 1;
@@ -509,7 +515,9 @@ void PusherController::monitorLoop() {
                             low_rate_count = 0;
                         }
                     }
-                } else {
+                } 
+                //速率够
+                else {
                     low_rate_count = 0;
                     // 带宽恢复：取消丢帧
                     if (drop_video_.load()) {

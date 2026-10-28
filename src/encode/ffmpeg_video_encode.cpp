@@ -117,7 +117,7 @@ namespace livepusher {
 			std::shared_ptr<AVPacket> packet(pkt, [](AVPacket* p) {
 				av_packet_free(&p);
 				});
-			//写包，将Packet写进封装器
+			//写包，将Packet写进封装器，同时将解码好的yuvj422p转成yuv420p
 			if (callback_) {
 				callback_(packet);
 			}

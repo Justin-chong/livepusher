@@ -156,6 +156,7 @@ namespace livepusher {
 				if (disconnect_callback_) {
 					// 注意：回调在锁内触发，回调里不能做耗时操作（比如再写 muxer），
 					// 否则可能死锁。这里回调只负责通知上层，重连由上层另开逻辑。
+					//断线重连不在这做，在monitorLoop轮询中完成
 					disconnect_callback_(ret);
 				}
 			}
